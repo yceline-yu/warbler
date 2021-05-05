@@ -3,8 +3,9 @@ import os
 from flask import Flask, render_template, request, flash, redirect, session, g
 from flask_debugtoolbar import DebugToolbarExtension
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy import or_
 
-from forms import UserAddForm, LoginForm, MessageForm, EditForm
+from forms import UserAddForm, LoginForm, MessageForm, UserEditForm, DeleteForm
 from models import db, connect_db, User, Message
 
 CURR_USER_KEY = "curr_user"
@@ -77,8 +78,12 @@ def signup():
             )
             db.session.commit()
 
-        except IntegrityError:
-            flash("Username or email already taken", 'danger')
+        except IntegrityError as exc:
+            #breakpoint()
+            if 'users_email' in exc.orig.args[0]:
+                flash("Please use a different email", 'danger')
+            if 'username' in exc.orig.args[0]:
+                flash("Please use a different username", 'danger')
             return render_template('users/signup.html', form=form)
 
         do_login(user)
@@ -109,12 +114,15 @@ def login():
     return render_template('users/login.html', form=form)
 
 
-@app.route('/logout')
+@app.route('/logout', methods=["POST"]) #make post and CSRF
 def logout():
     """Handle logout of user."""
 
-    do_logout()
-    flash("logout successful", 'success')
+    form = DeleteForm()
+    if form.validate_on_submit():
+
+        do_logout()
+        flash("logout successful", 'success')
     return redirect('/')
 
 
@@ -143,8 +151,8 @@ def users_show(user_id):
     """Show user profile."""
 
     user = User.query.get_or_404(user_id)
-
-    return render_template('users/show.html', user=user)
+    form = DeleteForm()
+    return render_template('users/show.html', user=user, form=form)
 
 
 @app.route('/users/<int:user_id>/following')
@@ -155,8 +163,10 @@ def show_following(user_id):
         flash("Access unauthorized.", "danger")
         return redirect("/")
 
+    form = DeleteForm()
     user = User.query.get_or_404(user_id)
-    return render_template('users/following.html', user=user)
+
+    return render_template('users/following.html', user=user, form=form)
 
 
 @app.route('/users/<int:user_id>/followers')
@@ -167,8 +177,10 @@ def users_followers(user_id):
         flash("Access unauthorized.", "danger")
         return redirect("/")
 
+    form = DeleteForm()
     user = User.query.get_or_404(user_id)
-    return render_template('users/followers.html', user=user)
+
+    return render_template('users/followers.html', user=user, form=form)
 
 
 @app.route('/users/follow/<int:follow_id>', methods=['POST'])
@@ -209,7 +221,7 @@ def edit_profile():
         flash("Access unauthorized.", "danger")
         return redirect("/")
 
-    form = EditForm(obj=g.user)
+    form = UserEditForm(obj=g.user)
 
     if form.validate_on_submit():
         if User.authenticate(g.user.username, form.password.data):
@@ -222,17 +234,21 @@ def edit_profile():
 
                 db.session.commit()
 
-            except IntegrityError:
+            except IntegrityError as exc:
+                #breakpoint()
                 db.session.rollback()
-                flash("Username or email already taken", 'danger')
-                return render_template('users/edit.html', form=form)    
+                if 'users_email' in exc.orig.args[0]:
+                    flash("Please use a different email", 'danger')
+                if 'username' in exc.orig.args[0]:
+                    flash("Please use a different username", 'danger')
+                return render_template('users/edit.html', form=form)
 
             flash("Update successful!", "success")
             return redirect(f'/users/{g.user.id}')
 
         else:
             flash("Error: Incorrect Password", "danger")
-            return redirect('/')   
+            return redirect('/')
 
     return render_template("users/edit.html", form=form)
 
@@ -240,15 +256,18 @@ def edit_profile():
 @app.route('/users/delete', methods=["POST"])
 def delete_user():
     """Delete user."""
-
+    #csrf
     if not g.user:
         flash("Access unauthorized.", "danger")
         return redirect("/")
 
-    do_logout()
+    form = DeleteForm()
+    if form.validate_on_submit():
 
-    db.session.delete(g.user)
-    db.session.commit()
+        do_logout()
+
+        db.session.delete(g.user)
+        db.session.commit()
 
     return redirect("/signup")
 
@@ -314,17 +333,21 @@ def homepage():
     - logged in: 100 most recent messages of followed_users
     """
 
+    form = DeleteForm()
+
     if g.user:
+        following_user_ids = [u.id for u in g.user.following] + [g.user.id]
         messages = (Message
                     .query
+                    .filter(Message.user_id.in_(following_user_ids))
                     .order_by(Message.timestamp.desc())
                     .limit(100)
                     .all())
 
-        return render_template('home.html', messages=messages)
+        return render_template('home.html', messages=messages, form=form)
 
     else:
-        return render_template('home-anon.html')
+        return render_template('home-anon.html', form=form)
 
 
 ##############################################################################
