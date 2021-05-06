@@ -34,8 +34,9 @@
           {% if g.user %}
           {% if g.user.id == message.user.id %}
           <span></span>
-          {% elif g.user in (message.liked) %}
-          <form method="POST" action="/users/unlike/{{ message.id }}">
+          {% elif g.user in (message.liked_by) %}
+          <form method="POST" action="/messages/{{ message.id }}/unlike">
+			{{ form.hidden_tag() }}
             <button class="btn btn-primary btn-sm"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
                 fill="currentColor" class="bi bi-star-fill" viewBox="0 0 16 16">
                 <path
@@ -43,7 +44,8 @@
               </svg>Unlike</button>
           </form>
           {% else %}
-          <form method="POST" action="/users/like/{{ message.id }}">
+          <form method="POST" action="/messages/{{ message.id }}/like">
+			{{ form.hidden_tag() }}
             <button class="btn btn-primary btn-sm"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
                 fill="currentColor" class="bi bi-star" viewBox="0 0 16 16">
                 <path

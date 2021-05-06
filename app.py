@@ -268,7 +268,7 @@ def delete_user():
         Message.query.filter(Message.user_id==g.user.id).delete()
 
         do_logout()
-        
+
         db.session.delete(g.user)
         db.session.commit()
 
@@ -324,6 +324,47 @@ def messages_destroy(message_id):
 
     return redirect(f"/users/{g.user.id}")
 
+
+@app.route('/messages/<int:message_id>/like', methods=["POST"])
+def messages_like(message_id):
+    """Like a message"""
+
+    if not g.user:
+        flash("Access unauthorized.", "danger")
+        return redirect("/")
+
+    form = DeleteForm()
+
+    if form.validate_on_submit():
+        liked_message = LikedMessage(user_id=g.user.id, message_id=message_id)
+        db.session.add(liked_message)
+        db.session.commit()
+        flash("Message liked!")
+
+    return redirect(f'/messages/{message_id}')
+
+
+@app.route('/messages/<int:message_id>/unlike', methods=["POST"])
+def messages_unlike(message_id):
+    """Unlike a message"""
+
+    if not g.user:
+        flash("Access unauthorized.", "danger")
+        return redirect("/")
+
+    form = DeleteForm()
+
+    if form.validate_on_submit():
+
+        liked_message = LikedMessage.query.filter(
+                        LikedMessage.user_id == g.user.id,
+                        LikedMessage.message_id == message_id).all()
+        breakpoint()
+        db.session.delete(liked_message[0])
+        db.session.commit()
+        flash("Message unliked!")
+
+    return redirect(f'/messages/{message_id}')
 
 ##############################################################################
 # Homepage and error pages
