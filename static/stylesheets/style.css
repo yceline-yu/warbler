@@ -20,6 +20,11 @@ body.error-404 {
   cursor: pointer;
 }
 
+.alert{
+  position: relative;
+  z-index: 1;
+}
+
 /* ======================= Nav */
 
 .navbar {
@@ -544,6 +549,13 @@ p.card-bio {
   position:absolute;
   top: 4px;
   right: 4px;
+  z-index: 1;
+}
+
+.message-info-like-button {
+  position:absolute;
+  bottom:50px;
+  right: 17px;
   z-index: 1;
 }
 

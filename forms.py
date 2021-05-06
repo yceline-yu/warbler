@@ -36,5 +36,5 @@ class UserEditForm(FlaskForm):
     password = PasswordField('Password', validators=[Length(min=6)])
 
 
-class DeleteForm(FlaskForm):
+class TokenValidationForm(FlaskForm):
 	""" CSRF protection """

@@ -5,7 +5,7 @@ from flask_debugtoolbar import DebugToolbarExtension
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import or_
 
-from forms import UserAddForm, LoginForm, MessageForm, UserEditForm, DeleteForm
+from forms import UserAddForm, LoginForm, MessageForm, UserEditForm, TokenValidationForm
 from models import db, connect_db, User, Message, LikedMessage
 
 CURR_USER_KEY = "curr_user"
@@ -21,6 +21,7 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SQLALCHEMY_ECHO'] = False
 app.config['DEBUG_TB_INTERCEPT_REDIRECTS'] = True
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', "it's a secret")
+app.config['DEBUG_TB_INTERCEPT_REDIRECTS'] = False
 toolbar = DebugToolbarExtension(app)
 
 connect_db(app)
@@ -118,7 +119,7 @@ def login():
 def logout():
     """Handle logout of user."""
 
-    form = DeleteForm()
+    form = TokenValidationForm()
     if form.validate_on_submit():
 
         do_logout()
@@ -137,7 +138,7 @@ def list_users():
     """
 
     search = request.args.get('q')
-    form = DeleteForm()
+    form = TokenValidationForm()
 
     if not search:
         users = User.query.all()
@@ -152,7 +153,7 @@ def users_show(user_id):
     """Show user profile."""
 
     user = User.query.get_or_404(user_id)
-    form = DeleteForm()
+    form = TokenValidationForm()
     return render_template('users/show.html', user=user, form=form)
 
 
@@ -164,7 +165,7 @@ def show_following(user_id):
         flash("Access unauthorized.", "danger")
         return redirect("/")
 
-    form = DeleteForm()
+    form = TokenValidationForm()
     user = User.query.get_or_404(user_id)
 
     return render_template('users/following.html', user=user, form=form)
@@ -178,7 +179,7 @@ def users_followers(user_id):
         flash("Access unauthorized.", "danger")
         return redirect("/")
 
-    form = DeleteForm()
+    form = TokenValidationForm()
     user = User.query.get_or_404(user_id)
 
     return render_template('users/followers.html', user=user, form=form)
@@ -191,7 +192,7 @@ def users_likes(user_id):
         flash("Access unauthorized.", "danger")
         return redirect("/")
 
-    form = DeleteForm()
+    form = TokenValidationForm()
     user = User.query.get_or_404(user_id)
 
     return render_template('users/likes.html', user=user, form=form)
@@ -275,7 +276,7 @@ def delete_user():
         flash("Access unauthorized.", "danger")
         return redirect("/")
 
-    form = DeleteForm()
+    form = TokenValidationForm()
     if form.validate_on_submit():
 
         Message.query.filter(Message.user_id==g.user.id).delete()
@@ -318,7 +319,7 @@ def messages_add():
 def messages_show(message_id):
     """Show a message."""
 
-    form = DeleteForm()
+    form = TokenValidationForm()
     msg = Message.query.get(message_id)
     return render_template('messages/show.html', message=msg, form=form)
 
@@ -346,15 +347,19 @@ def messages_like(message_id):
         flash("Access unauthorized.", "danger")
         return redirect("/")
 
-    form = DeleteForm() #change name
+    form = TokenValidationForm() #change name
+    referrer = request.headers.get("Referer")
 
     if form.validate_on_submit():
         liked_message = LikedMessage(user_id=g.user.id, message_id=message_id)
         db.session.add(liked_message)
         db.session.commit()
-        flash("Message liked!") #TODO make this work
+        flash("Message liked!", "success") #TODO make this work
 
-    return redirect(f'/messages/{message_id}')
+    if referrer:
+        return redirect(f'{referrer}')
+    else:
+        return redirect(f'/messages/{message_id}')
 
 
 @app.route('/messages/<int:message_id>/unlike', methods=["POST"])
@@ -365,7 +370,8 @@ def messages_unlike(message_id):
         flash("Access unauthorized.", "danger")
         return redirect("/")
 
-    form = DeleteForm()
+    form = TokenValidationForm()
+    referrer = request.headers.get("Referer")
 
     if form.validate_on_submit():
 
@@ -375,9 +381,11 @@ def messages_unlike(message_id):
 
         db.session.delete(liked_message)
         db.session.commit()
-        flash("Message unliked!")
-
-    return redirect(f'/messages/{message_id}') #referrer with fallback
+        flash("Message unliked!", "success")
+    if referrer:
+        return redirect(f'{referrer}')
+    else:
+        return redirect(f'/messages/{message_id}')
 
 ##############################################################################
 # Homepage and error pages
@@ -391,7 +399,7 @@ def homepage():
     - logged in: 100 most recent messages of followed_users
     """
 
-    form = DeleteForm()
+    form = TokenValidationForm()
 
     if g.user:
         following_user_ids = [u.id for u in g.user.following] + [g.user.id]
