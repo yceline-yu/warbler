@@ -183,6 +183,19 @@ def users_followers(user_id):
 
     return render_template('users/followers.html', user=user, form=form)
 
+@app.route('/users/<int:user_id>/likes')
+def users_likes(user_id):
+    """Show a list of liked warbles of this user"""
+
+    if not g.user:
+        flash("Access unauthorized.", "danger")
+        return redirect("/")
+
+    form = DeleteForm()
+    user = User.query.get_or_404(user_id)    
+
+    return render_template('users/likes.html', user=user, form=form)
+
 
 @app.route('/users/follow/<int:follow_id>', methods=['POST'])
 def add_follow(follow_id):
@@ -359,7 +372,7 @@ def messages_unlike(message_id):
         liked_message = LikedMessage.query.filter(
                         LikedMessage.user_id == g.user.id,
                         LikedMessage.message_id == message_id).all()
-        breakpoint()
+
         db.session.delete(liked_message[0])
         db.session.commit()
         flash("Message unliked!")
