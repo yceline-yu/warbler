@@ -192,7 +192,7 @@ def users_likes(user_id):
         return redirect("/")
 
     form = DeleteForm()
-    user = User.query.get_or_404(user_id)    
+    user = User.query.get_or_404(user_id)
 
     return render_template('users/likes.html', user=user, form=form)
 
@@ -346,20 +346,20 @@ def messages_like(message_id):
         flash("Access unauthorized.", "danger")
         return redirect("/")
 
-    form = DeleteForm()
+    form = DeleteForm() #change name
 
     if form.validate_on_submit():
         liked_message = LikedMessage(user_id=g.user.id, message_id=message_id)
         db.session.add(liked_message)
         db.session.commit()
-        flash("Message liked!")
+        flash("Message liked!") #TODO make this work
 
     return redirect(f'/messages/{message_id}')
 
 
 @app.route('/messages/<int:message_id>/unlike', methods=["POST"])
 def messages_unlike(message_id):
-    """Unlike a message"""
+    """Unlike a message and redirects back to the message"""
 
     if not g.user:
         flash("Access unauthorized.", "danger")
@@ -371,13 +371,13 @@ def messages_unlike(message_id):
 
         liked_message = LikedMessage.query.filter(
                         LikedMessage.user_id == g.user.id,
-                        LikedMessage.message_id == message_id).all()
+                        LikedMessage.message_id == message_id).one()
 
-        db.session.delete(liked_message[0])
+        db.session.delete(liked_message)
         db.session.commit()
         flash("Message unliked!")
 
-    return redirect(f'/messages/{message_id}')
+    return redirect(f'/messages/{message_id}') #referrer with fallback
 
 ##############################################################################
 # Homepage and error pages
