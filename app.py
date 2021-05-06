@@ -6,7 +6,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy import or_
 
 from forms import UserAddForm, LoginForm, MessageForm, UserEditForm, DeleteForm
-from models import db, connect_db, User, Message
+from models import db, connect_db, User, Message, LikedMessage
 
 CURR_USER_KEY = "curr_user"
 
@@ -137,13 +137,14 @@ def list_users():
     """
 
     search = request.args.get('q')
+    form = DeleteForm()
 
     if not search:
         users = User.query.all()
     else:
         users = User.query.filter(User.username.like(f"%{search}%")).all()
 
-    return render_template('users/index.html', users=users)
+    return render_template('users/index.html', users=users, form=form)
 
 
 @app.route('/users/<int:user_id>')
@@ -250,13 +251,13 @@ def edit_profile():
             flash("Error: Incorrect Password", "danger")
             return redirect('/')
 
-    return render_template("users/edit.html", form=form)
+    return render_template("users/edit.html", form=form, user=g.user)
 
 
 @app.route('/users/delete', methods=["POST"])
 def delete_user():
     """Delete user."""
-    #csrf
+
     if not g.user:
         flash("Access unauthorized.", "danger")
         return redirect("/")
@@ -264,8 +265,10 @@ def delete_user():
     form = DeleteForm()
     if form.validate_on_submit():
 
-        do_logout()
+        Message.query.filter(Message.user_id==g.user.id).delete()
 
+        do_logout()
+        
         db.session.delete(g.user)
         db.session.commit()
 
@@ -302,8 +305,9 @@ def messages_add():
 def messages_show(message_id):
     """Show a message."""
 
+    form = DeleteForm()
     msg = Message.query.get(message_id)
-    return render_template('messages/show.html', message=msg)
+    return render_template('messages/show.html', message=msg, form=form)
 
 
 @app.route('/messages/<int:message_id>/delete', methods=["POST"])
