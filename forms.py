@@ -1,5 +1,7 @@
+"""WTForms classes for html forms"""
+
 from flask_wtf import FlaskForm
-from wtforms import StringField, PasswordField, TextAreaField, HiddenField
+from wtforms import StringField, PasswordField, TextAreaField
 from wtforms.validators import DataRequired, Email, Length, Optional
 
 
@@ -37,4 +39,4 @@ class UserEditForm(FlaskForm):
 
 
 class TokenValidationForm(FlaskForm):
-	""" CSRF protection """
+	"""CSRF protection"""

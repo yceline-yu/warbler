@@ -3,7 +3,6 @@ import os
 from flask import Flask, render_template, request, flash, redirect, session, g
 from flask_debugtoolbar import DebugToolbarExtension
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy import or_
 
 from forms import UserAddForm, LoginForm, MessageForm, UserEditForm, TokenValidationForm
 from models import db, connect_db, User, Message, LikedMessage
@@ -80,7 +79,6 @@ def signup():
             db.session.commit()
 
         except IntegrityError as exc:
-            #breakpoint()
             if 'users_email' in exc.orig.args[0]:
                 flash("Please use a different email", 'danger')
             if 'username' in exc.orig.args[0]:
@@ -115,7 +113,7 @@ def login():
     return render_template('users/login.html', form=form)
 
 
-@app.route('/logout', methods=["POST"]) #make post and CSRF
+@app.route('/logout', methods=["POST"])
 def logout():
     """Handle logout of user."""
 
@@ -124,7 +122,8 @@ def logout():
 
         do_logout()
         flash("logout successful", 'success')
-    return redirect('/')
+
+    return redirect('/login')
 
 
 ##############################################################################
@@ -184,9 +183,10 @@ def users_followers(user_id):
 
     return render_template('users/followers.html', user=user, form=form)
 
+
 @app.route('/users/<int:user_id>/likes')
 def users_likes(user_id):
-    """Show a list of liked warbles of this user"""
+    """Show a list of warbles this user liked"""
 
     if not g.user:
         flash("Access unauthorized.", "danger")
@@ -228,7 +228,7 @@ def stop_following(follow_id):
     return redirect(f"/users/{g.user.id}/following")
 
 
-@app.route('/users/profile', methods=["GET", "POST"])
+@app.route('/users/profile', methods=["GET", "POST"]) # TODO: find more RESTful route name
 def edit_profile():
     """Update profile for current user."""
 
@@ -249,8 +249,8 @@ def edit_profile():
 
                 db.session.commit()
 
+            # TODO: catch this error at a higher level, in form or model
             except IntegrityError as exc:
-                #breakpoint()
                 db.session.rollback()
                 if 'users_email' in exc.orig.args[0]:
                     flash("Please use a different email", 'danger')
@@ -279,7 +279,7 @@ def delete_user():
     form = TokenValidationForm()
     if form.validate_on_submit():
 
-        Message.query.filter(Message.user_id==g.user.id).delete()
+        Message.query.filter(Message.user_id == g.user.id).delete()
 
         do_logout()
 
@@ -305,14 +305,14 @@ def messages_add():
 
     form = MessageForm()
 
-    if form.validate_on_submit():   
+    if form.validate_on_submit():
             msg = Message(text=form.text.data)
             g.user.messages.append(msg)
             db.session.commit()
             flash("New Message Added!", "success")
 
             return redirect(f"/users/{g.user.id}")
-    
+
     form.user_id.data = g.user.id
     return render_template('messages/new.html', form=form)
 
