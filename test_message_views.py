@@ -43,17 +43,20 @@ class MessageViewTestCase(TestCase):
 
         self.client = app.test_client()
 
-        self.testuser = User.signup(username="testuser",
-                                    email="test@test.com",
-                                    password="testuser",
-                                    image_url=None)
+        testuser = User.signup(username="testuser",
+                                email="test@test.com",
+                                password="testuser",
+                                image_url=None)
 
         db.session.commit()
+        self.test_user_id = testuser.id
 
-        self.test_msg = Message(text="Hello World!", user_id=self.testuser.id)
+        test_msg = Message(text="Hello World!", user_id=self.test_user_id)
 
-        db.session.add(self.test_msg)
+        db.session.add(test_msg)
         db.session.commit()
+
+        self.test_msg_id = test_msg.id
 
     def tearDown(self):
         """ clean test database for next test """
@@ -68,20 +71,26 @@ class MessageViewTestCase(TestCase):
 
         with self.client as c:
             with c.session_transaction() as sess:
-                sess[CURR_USER_KEY] = self.testuser.id
+                sess[CURR_USER_KEY] = self.test_user_id
 
             # Now, that session setting is saved, so we can have
             # the rest of ours test
 
-            resp = c.post("/messages/new", data={"text": "Hello"})
+            resp = c.post("/messages/new", 
+                            data={
+                            "text": "Hello",
+                            "user_id": self.test_user_id}
+                            )
 
             # Make sure it redirects
             self.assertEqual(resp.status_code, 302)
 
             msgs = Message.query.all()
             self.assertEqual(len(msgs), 2)
-            msg = [m.text for m in User.query(self.testuser.messages).all()]
-            self.assertIn("Hello", msg)
+            msgs_text = [m.text for m in Message.query
+                                        .filter(Message.user_id==self.test_user_id)
+                                        .all()]
+            self.assertIn("Hello", msgs_text)
 
 
     def test_add_message_logged_out(self):
@@ -94,10 +103,12 @@ class MessageViewTestCase(TestCase):
             self.assertEqual(resp.status_code, 302)
             self.assertEqual(resp.location, 'http://localhost/')
 
-            self.assertEqual(Message.query.one(), self.test_msg)
+            test_msg = Message.query.get(self.test_msg_id)
+
+            self.assertEqual(Message.query.one(), test_msg)
 
 
-    def test_add_message_logged_out_redirect(self):
+    def test_add_message_logged_out_redirect_followed(self):
         """If user is not logged out, does attempting to add new message
         redirect and add flash message 'access unauthorized'"""
 
@@ -118,12 +129,78 @@ class MessageViewTestCase(TestCase):
 
         with self.client as c:
             with c.session_transaction() as sess:
-                sess[CURR_USER_KEY] = self.testuser.id
+                sess[CURR_USER_KEY] = self.test_user_id
 
-            resp = c.post(f"/messages/{self.test_msg.id}/delete")
+            resp = c.post(f"/messages/{self.test_msg_id}/delete")
 
             # Make sure it redirects
             self.assertEqual(resp.status_code, 302)
             self.assertEqual(resp.location, f'http://localhost/users/{sess[CURR_USER_KEY]}')
 
             self.assertRaises(NoResultFound, Message.query.one)
+
+    def test_delete_message_redirect_followed(self):
+        """If user is logged in and attempts to delete message should
+        redirect and flash message 'Message Deleted!'"""
+
+        with self.client as c:
+            with c.session_transaction() as sess:
+                sess[CURR_USER_KEY] = self.test_user_id
+
+            resp = c.post(f"/messages/{self.test_msg_id}/delete",
+                            follow_redirects=True)
+
+            html = resp.get_data(as_text=True)
+            self.assertEqual(resp.status_code, 200)
+
+            self.assertIn('Message Deleted!', html)
+
+    def test_delete_message_logged_out(self):
+        """If user is not logged in, does attempting to delete a message
+        get a redirect response to redirect location and fail to delete message"""
+
+        with self.client as c:
+            resp = c.post(f"/messages/{self.test_msg_id}/delete")
+
+            self.assertEqual(resp.status_code, 302)
+            self.assertEqual(resp.location, 'http://localhost/')
+
+            test_msg = Message.query.get(self.test_msg_id)
+
+            self.assertEqual(Message.query.one(), test_msg)   
+
+    def test_delete_message_logged_out_redirect_followed(self):
+        """If user is not logged in, does attempting to delete a message
+        redirect and add flash message 'Access unauthorized.'"""
+
+        with self.client as c:
+            resp = c.post(f"/messages/{self.test_msg_id}/delete",
+                          follow_redirects=True
+                          )
+
+            html = resp.get_data(as_text=True)
+            self.assertEqual(resp.status_code, 200)
+
+            self.assertIn('Access unauthorized.', html)                 
+
+    def test_add_message_as_another_user(self):
+        """If user is logged in and attempts to delete message should
+        redirect and flash message 'Message Deleted!'"""
+
+        with self.client as c:
+            with c.session_transaction() as sess:
+                sess[CURR_USER_KEY] = self.test_user_id
+
+            new_user = User.signup(username="newuser",
+                                email="new@new.com",
+                                password="newuser",
+                                image_url=None)
+            db.session.commit() 
+
+            resp = c.post("/messages/new",
+                          data={"text": "Hello", 
+                                "user_id": new_user.id})
+
+            html = resp.get_data(as_text=True)
+            self.assertEqual(resp.status_code, 302)
+            self.assertEqual(resp.location, 'http://localhost/messages/new')

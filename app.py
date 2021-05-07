@@ -306,12 +306,19 @@ def messages_add():
     form = MessageForm()
 
     if form.validate_on_submit():
-        msg = Message(text=form.text.data)
-        g.user.messages.append(msg)
-        db.session.commit()
+        # if int(form.user_id.data) != g.user.id:
+        #     flash("You can't add messages for others!", "danger")
+        #     return redirect('/messages/new')
 
-        return redirect(f"/users/{g.user.id}")
+        # else:    
+            msg = Message(text=form.text.data)
+            g.user.messages.append(msg)
+            db.session.commit()
+            flash("New Message Added!", "success")
 
+            return redirect(f"/users/{g.user.id}")
+    
+    form.user_id.data = g.user.id
     return render_template('messages/new.html', form=form)
 
 
@@ -335,7 +342,7 @@ def messages_destroy(message_id):
     msg = Message.query.get(message_id)
     db.session.delete(msg)
     db.session.commit()
-
+    flash("Message Deleted!", "success")
     return redirect(f"/users/{g.user.id}")
 
 
