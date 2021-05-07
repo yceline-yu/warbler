@@ -7,6 +7,7 @@
 
 import os
 from unittest import TestCase
+from sqlalchemy.exc import IntegrityError
 
 from models import db, User, Message, Follows, LikedMessage
 
@@ -119,3 +120,33 @@ class UserModelTestCase(TestCase):
 
         self.assertEqual(self.test_2.is_followed_by(self.test_1), True)
         self.assertEqual(self.test_1.is_followed_by(self.test_2), False)
+
+    def test_signup(self):
+        """Does signup successfully create a new user given valid credentials
+        and fail to create a new user if any of the validations 
+        (e.g. uniqueness, non-nullable fields) fail?"""
+
+        signed_up = User.signup("signupTest", "signUp@gmail.com", "mypassw", "")
+        db.session.commit()
+        
+        self.assertEqual(signed_up.username, "signupTest")
+
+        failed_sign = User.signup("failSignUp", "test_u1@test.com", "mypassw", "")
+
+        self.assertRaises(IntegrityError, db.session.commit)
+
+    def test_authenticate(self):
+        """Does authenticate:
+        successfully return a user when given a valid username and password?
+        and return false when password or username is invalid?"""
+
+        authen_user = User.signup("authenTest", "authen@gmail.com", "mypassw", "")
+        db.session.commit()
+
+        #correct credentials
+        self.assertEqual(User.authenticate("authenTest", "mypassw"), authen_user)
+        #wrong password, right username
+        self.assertEqual(User.authenticate("authenTest", "notmypassw"), False)
+        #wrong username, right password
+        self.assertEqual(User.authenticate("notAuthenTest", "mypassw"), False)
+
