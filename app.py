@@ -305,12 +305,7 @@ def messages_add():
 
     form = MessageForm()
 
-    if form.validate_on_submit():
-        # if int(form.user_id.data) != g.user.id:
-        #     flash("You can't add messages for others!", "danger")
-        #     return redirect('/messages/new')
-
-        # else:    
+    if form.validate_on_submit():   
             msg = Message(text=form.text.data)
             g.user.messages.append(msg)
             db.session.commit()
@@ -354,14 +349,14 @@ def messages_like(message_id):
         flash("Access unauthorized.", "danger")
         return redirect("/")
 
-    form = TokenValidationForm() #change name
+    form = TokenValidationForm()
     referrer = request.headers.get("Referer")
 
     if form.validate_on_submit():
         liked_message = LikedMessage(user_id=g.user.id, message_id=message_id)
         db.session.add(liked_message)
         db.session.commit()
-        flash("Message liked!", "success") #TODO make this work
+        flash("Message liked!", "success")
 
     if referrer:
         return redirect(f'{referrer}')
@@ -371,7 +366,7 @@ def messages_like(message_id):
 
 @app.route('/messages/<int:message_id>/unlike', methods=["POST"])
 def messages_unlike(message_id):
-    """Unlike a message and redirects back to the message"""
+    """Unlike a message and redirects"""
 
     if not g.user:
         flash("Access unauthorized.", "danger")
