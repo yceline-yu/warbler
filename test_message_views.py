@@ -7,7 +7,7 @@
 
 import os
 from unittest import TestCase
-
+from sqlalchemy.exc import NoResultFound
 from models import db, connect_db, Message, User
 
 # BEFORE we import our app, let's set an environmental variable
@@ -50,8 +50,18 @@ class MessageViewTestCase(TestCase):
 
         db.session.commit()
 
+        self.test_msg = Message(text="Hello World!", user_id=self.testuser.id)
+
+        db.session.add(self.test_msg)
+        db.session.commit()
+
+    def tearDown(self):
+        """ clean test database for next test """
+        db.session.rollback()
+
+
     def test_add_message(self):
-        """Can use add a message?"""
+        """Can user add a message?"""
 
         # Since we need to change the session to mimic logging in,
         # we need to use the changing-session trick:
@@ -68,5 +78,52 @@ class MessageViewTestCase(TestCase):
             # Make sure it redirects
             self.assertEqual(resp.status_code, 302)
 
-            msg = Message.query.one()
-            self.assertEqual(msg.text, "Hello")
+            msgs = Message.query.all()
+            self.assertEqual(len(msgs), 2)
+            msg = [m.text for m in User.query(self.testuser.messages).all()]
+            self.assertIn("Hello", msg)
+
+
+    def test_add_message_logged_out(self):
+        """If user is not logged out, does attempting to add new message
+        get a redirect response to redirect location and fail to add message"""
+
+        with self.client as c:
+            resp = c.post("/messages/new", data={"text": "Hello"})
+
+            self.assertEqual(resp.status_code, 302)
+            self.assertEqual(resp.location, 'http://localhost/')
+
+            self.assertEqual(Message.query.one(), self.test_msg)
+
+
+    def test_add_message_logged_out_redirect(self):
+        """If user is not logged out, does attempting to add new message
+        redirect and add flash message 'access unauthorized'"""
+
+        with self.client as c:
+            resp = c.post("/messages/new",
+                          data={"text": "Hello"},
+                          follow_redirects=True
+                          )
+
+            html = resp.get_data(as_text=True)
+            self.assertEqual(resp.status_code, 200)
+
+            self.assertIn('Access unauthorized.', html)
+
+
+    def test_delete_message(self):
+        """Can user delete a message when logged in?"""
+
+        with self.client as c:
+            with c.session_transaction() as sess:
+                sess[CURR_USER_KEY] = self.testuser.id
+
+            resp = c.post(f"/messages/{self.test_msg.id}/delete")
+
+            # Make sure it redirects
+            self.assertEqual(resp.status_code, 302)
+            self.assertEqual(resp.location, f'http://localhost/users/{sess[CURR_USER_KEY]}')
+
+            self.assertRaises(NoResultFound, Message.query.one)

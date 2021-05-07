@@ -29,10 +29,6 @@ from app import app
 db.create_all()
 
 
-# test if relationship is correct for message.user_id is user.id
-# deleting a message instance
-# test liking relationships with LikedMessage
-
 class MessageModelTestCase(TestCase):
     """Message Model Tests"""
 
@@ -110,7 +106,7 @@ class MessageModelTestCase(TestCase):
         self.assertNotEqual(new_msg.user_id, test_u2.id)
 
     def test_liked_messages(self):
-        """Is there a relationship between the correct users and messages?"""
+        """Is there a relationship between the correct users and LikedMessages?"""
 
         test_u2 = User(
             email="test_u2@test.com",
@@ -122,12 +118,34 @@ class MessageModelTestCase(TestCase):
         db.session.commit()
 
         liked_message = LikedMessage(
-            user_id=test_u2.id, 
+            user_id=test_u2.id,
             message_id=self.test_msg.id
-            )   
+            )
 
         db.session.add(liked_message)
         db.session.commit()
 
         self.assertIn(test_u2, self.test_msg.liked_by)
-        self.assertIn(self.test_msg, test_u2.liked_messages)  
+        self.assertIn(self.test_msg, test_u2.liked_messages)
+
+    def test_user_created_messages_list(self):
+        """Test that user instance.messages has correct list of user's own messages"""
+
+        msg2 = Message(
+            text="Hello World Again!",
+            user_id=self.test_1.id
+        )
+
+        db.session.add(msg2)
+        db.session.commit()
+
+        self.assertEqual(len(self.test_1.messages), 2)
+
+    def test_message_delete(self):
+        """Test that message is successfully deleted."""
+
+        db.session.delete(self.test_msg)
+        db.session.commit()
+
+        self.assertEqual(len(self.test_1.messages), 0)
+        self.assertIsNone(Message.query.get(self.test_msg.id))
