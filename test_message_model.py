@@ -28,6 +28,7 @@ from app import app
 
 db.create_all()
 
+#TODO: Add a test for liking own posts
 
 class MessageModelTestCase(TestCase):
     """Message Model Tests"""

@@ -315,7 +315,6 @@ def messages_add():
 
             return redirect(f"/users/{g.user.id}")
 
-    form.user_id.data = g.user.id
     return render_template('messages/new.html', form=form)
 
 
